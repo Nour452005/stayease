@@ -1,6 +1,7 @@
 package com.stayease.stayease.model;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -23,7 +24,10 @@ public class User {
     @Column(unique = true, nullable = false) //no two users share an email
     private String email;
 
+
     @Column(nullable = false)
+    @JsonIgnore
+
     private String password;
 
     @Enumerated(EnumType.STRING) //stores the role as the string ADMIN or GUEST

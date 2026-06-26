@@ -1,5 +1,6 @@
 package com.stayease.stayease.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -24,6 +25,7 @@ public class Room {
     @Enumerated(EnumType.STRING)
     private RoomStatus status;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "room") //one room has many reservations
     //JPA needs to know this to build the relationship
 
