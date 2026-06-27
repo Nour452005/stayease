@@ -25,27 +25,36 @@
 <!-- HERO -->
 <div class="hero">
     <h1>Find Your Perfect Stay</h1>
-    <p>Browse our beautiful rooms and book your next getaway</p>
-    <div class="search-bar">
-        <div class="form-group">
-            <label>Check-in</label>
-            <input type="date" id="search-checkin">
-        </div>
-        <div class="form-group">
-            <label>Check-out</label>
-            <input type="date" id="search-checkout">
-        </div>
-        <div class="form-group">
-            <label>Type</label>
-            <select id="search-type">
-                <option value="">All types</option>
-                <option value="SINGLE">Single</option>
-                <option value="DOUBLE">Double</option>
-                <option value="SUITE">Suite</option>
-            </select>
-        </div>
-        <button class="btn btn-accent" onclick="filterRooms()">Search</button>
+    <p>Browse our beautiful rooms and book your next getaway</p><div class="search-bar">
+    <div class="form-group">
+        <label>Check-in</label>
+        <input type="date" id="search-checkin" onchange="triggerSearch()">
     </div>
+    <div class="form-group">
+        <label>Check-out</label>
+        <input type="date" id="search-checkout" onchange="triggerSearch()">
+    </div>
+    <div class="form-group">
+        <label>Type</label>
+        <select id="search-type" onchange="triggerSearch()">
+            <option value="">All types</option>
+            <option value="SINGLE">Single</option>
+            <option value="DOUBLE">Double</option>
+            <option value="SUITE">Suite</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Min price ($)</label>
+        <input type="number" id="search-min-price" placeholder="0"
+               oninput="triggerSearch()">
+    </div>
+    <div class="form-group">
+        <label>Max price ($)</label>
+        <input type="number" id="search-max-price" placeholder="Any"
+               oninput="triggerSearch()">
+    </div>
+    <button class="btn btn-accent" onclick="runSearch()">Search</button>
+</div>
 </div>
 
 <!-- ROOMS -->
@@ -67,6 +76,7 @@
 <script src="js/api.js"></script>
 <script>
     let allRooms = [];
+    let searchTimeout = null;
 
     async function loadRooms() {
         try {
@@ -80,43 +90,69 @@
 
     function renderRooms(rooms) {
         const container = document.getElementById('rooms-container');
-
         const available = rooms.filter(r => r.status === 'AVAILABLE');
 
         if (available.length === 0) {
             container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">🏨</div>
-                    <p>No rooms available at the moment.</p>
-                </div>`;
+            <div class="empty-state">
+                <div class="empty-icon">🏨</div>
+                <p>No rooms available for the selected criteria.</p>
+            </div>`;
             return;
         }
 
         container.innerHTML = `<div class="rooms-grid">
-            ${available.map(room => `
-                <a href="/room-detail.html?id=${room.id}" class="room-card">
-                    ${room.imageUrl
+        ${available.map(room => `
+            <a href="/room-detail.html?id=${room.id}" class="room-card">
+                ${room.imageUrl
             ? `<img src="${room.imageUrl}" class="room-card-img" style="object-fit:cover">`
             : `<div class="room-card-img">🛏️</div>`
         }
-                    <div class="room-card-body">
-                        <div class="room-card-title">Room ${room.number} — ${room.type}</div>
-                        <div class="room-card-desc">${room.description || 'A comfortable room for your stay.'}</div>
-                        <div class="room-card-footer">
-                            <div class="room-price">$${room.pricePerNight} <span>/ night</span></div>
-                            <span class="badge badge-available">👥 ${room.capacity} guests</span>
-                        </div>
+                <div class="room-card-body">
+                    <div class="room-card-title">Room ${room.number} — ${room.type}</div>
+                    <div class="room-card-desc">${room.description || 'A comfortable room for your stay.'}</div>
+                    <div class="room-card-footer">
+                        <div class="room-price">$${room.pricePerNight} <span>/ night</span></div>
+                        <span class="badge badge-available">👥 ${room.capacity} guests</span>
                     </div>
-                </a>
-            `).join('')}
-        </div>`;
+                </div>
+            </a>
+        `).join('')}
+    </div>`;
     }
 
-    function filterRooms() {
-        const type = document.getElementById('search-type').value;
-        let filtered = allRooms.filter(r => r.status === 'AVAILABLE');
-        if (type) filtered = filtered.filter(r => r.type === type);
-        renderRooms(filtered);
+    function triggerSearch() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(runSearch, 500);
+    }
+
+    async function runSearch() {
+        const checkIn  = document.getElementById('search-checkin').value;
+        const checkOut = document.getElementById('search-checkout').value;
+        const type     = document.getElementById('search-type').value;
+        const minPrice = parseFloat(document.getElementById('search-min-price').value) || 0;
+        const maxPrice = parseFloat(document.getElementById('search-max-price').value) || Infinity;
+
+        try {
+            let rooms;
+
+            if (checkIn && checkOut) {
+                rooms = await searchRooms(checkIn, checkOut, type);
+            } else {
+                rooms = [...allRooms];
+                if (type) rooms = rooms.filter(r => r.type === type);
+            }
+
+            rooms = rooms.filter(r =>
+                r.pricePerNight >= minPrice &&
+                r.pricePerNight <= maxPrice
+            );
+
+            renderRooms(rooms);
+        } catch (err) {
+            document.getElementById('rooms-container').innerHTML =
+                '<div class="alert alert-error">Search failed. Please try again.</div>';
+        }
     }
 
     // Set min date to today

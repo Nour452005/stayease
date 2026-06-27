@@ -148,3 +148,15 @@ async function updateRoomImage(roomId, imageUrl) {
     });
     return res.json();
 }
+
+async function searchRooms(checkIn, checkOut, type) {
+    const params = new URLSearchParams();
+    if (checkIn) params.append('checkIn', checkIn);
+    if (checkOut) params.append('checkOut', checkOut);
+    if (type) params.append('type', type);
+
+    const res = await fetch(`${API_BASE}/rooms/search?${params}`, {
+        headers: getHeaders(false)
+    });
+    return res.json();
+}
