@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StayEase — Room Detail</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+    <a href="/index.html" class="nav-brand">Stay<span>Ease</span></a>
+    <div class="nav-links">
+        <span id="nav-email"></span>
+        <a href="/index.html">Rooms</a>
+        <a href="/dashboard.html" id="nav-dashboard" style="display:none">My Bookings</a>
+        <a href="/admin.html" id="nav-admin" style="display:none">Admin</a>
+        <a href="/login.html" id="nav-login">Login</a>
+        <a href="/login.html?mode=register" id="nav-register" class="btn-accent">Register</a>
+        <a href="#" id="nav-logout" style="display:none" onclick="logout()">Logout</a>
+    </div>
+</nav>
+
+<div class="container">
+    <div id="room-container">
+        <div class="loading">
+            <div class="spinner"></div>
+            Loading room...
+        </div>
+    </div>
+</div>
+
+<footer>
+    <p>© 2026 StayEase. All rights reserved.</p>
+</footer>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script>
+    const roomId = new URLSearchParams(window.location.search).get('id');
+
+    if (!roomId) window.location.href = '/index.html';
+
+    async function loadRoom() {
+        try {
+            const [room, reviews] = await Promise.all([
+                getRoomById(roomId),
+                getReviewsByRoom(roomId)
+            ]);
+            renderRoom(room, reviews);
+        } catch (err) {
+            document.getElementById('room-container').innerHTML =
+                '<div class="alert alert-error">Failed to load room.</div>';
+        }
+    }
+
+    function renderStars(rating) {
+        return '★'.repeat(rating) + '☆'.repeat(5 - rating);
+    }
+
+    function renderRoom(room, reviews) {
+        const avgRating = reviews.length
+            ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+            : null;
+
+        const today = new Date().toISOString().split('T')[0];
+
+        document.getElementById('room-container').innerHTML = `
+            <div class="room-detail-img">🛏️</div>
+
+            <div class="room-detail-grid">
+                <div class="room-info">
+                    <h1>Room ${room.number} — ${room.type}</h1>
+                    ${avgRating ? `<div style="color:var(--accent);font-size:1.1rem;margin-bottom:0.5rem">
+                        ★ ${avgRating} <span style="color:var(--text-muted);font-size:0.9rem">(${reviews.length} reviews)</span>
+                    </div>` : ''}
+
+                    <div class="room-meta">
+                        <span class="room-meta-item">🛏️ ${room.type}</span>
+                        <span class="room-meta-item">👥 Up to ${room.capacity} guests</span>
+                        <span class="room-meta-item badge ${
+            room.status === 'AVAILABLE' ? 'badge-available' :
+                room.status === 'OCCUPIED' ? 'badge-occupied' : 'badge-maintenance'
+        }">${room.status}</span>
+                    </div>
+
+                    <p style="color:var(--text-muted);line-height:1.7;margin-bottom:1.5rem">
+                        ${room.description || 'A comfortable and well-appointed room for your stay.'}
+                    </p>
+
+                    <!-- REVIEWS -->
+                    <div class="reviews-section">
+                        <h2 class="section-title">Guest Reviews</h2>
+                        ${reviews.length === 0
+            ? '<div class="empty-state"><div class="empty-icon">💬</div><p>No reviews yet.</p></div>'
+            : reviews.map(r => `
+                                <div class="review-card">
+                                    <div class="review-header">
+                                        <span class="review-author">${r.user.name}</span>
+                                        <span class="review-rating">${renderStars(r.rating)}</span>
+                                    </div>
+                                    <p class="review-comment">${r.comment}</p>
+                                </div>
+                            `).join('')
+        }
+                    </div>
+                </div>
+
+                <!-- BOOKING CARD -->
+                <div class="booking-card">
+                    <div class="price">$${room.pricePerNight} <span>/ night</span></div>
+
+                    <div id="booking-alert"></div>
+
+                    ${room.status !== 'AVAILABLE'
+            ? '<div class="alert alert-error">This room is not available for booking.</div>'
+            : `
+                        <div class="form-group">
+                            <label>Check-in</label>
+                            <input type="date" id="checkin" min="${today}">
+                        </div>
+                        <div class="form-group">
+                            <label>Check-out</label>
+                            <input type="date" id="checkout" min="${today}">
+                        </div>
+                        <div id="price-preview" style="margin-bottom:1rem;font-weight:600;color:var(--primary)"></div>
+                        <button class="btn btn-accent btn-full" onclick="bookRoom()">
+                            Book Now
+                        </button>
+                        <p style="font-size:0.8rem;color:var(--text-muted);text-align:center;margin-top:0.75rem">
+                            Free cancellation anytime
+                        </p>
+                    `}
+                </div>
+            </div>
+        `;
+
+        // Price preview
+        const checkinEl = document.getElementById('checkin');
+        const checkoutEl = document.getElementById('checkout');
+        if (checkinEl && checkoutEl) {
+            function updatePrice() {
+                if (checkinEl.value && checkoutEl.value) {
+                    const nights = Math.round(
+                        (new Date(checkoutEl.value) - new Date(checkinEl.value)) / 86400000
+                    );
+                    if (nights > 0) {
+                        document.getElementById('price-preview').textContent =
+                            `${nights} night${nights > 1 ? 's' : ''} × $${room.pricePerNight} = $${nights * room.pricePerNight}`;
+                    }
+                }
+            }
+            checkinEl.addEventListener('change', updatePrice);
+            checkoutEl.addEventListener('change', updatePrice);
+        }
+    }
+
+    async function bookRoom() {
+        if (!isLoggedIn()) {
+            window.location.href = '/login.html';
+            return;
+        }
+
+        const checkIn = document.getElementById('checkin').value;
+        const checkOut = document.getElementById('checkout').value;
+
+        if (!checkIn || !checkOut) {
+            document.getElementById('booking-alert').innerHTML =
+                '<div class="alert alert-error">Please select check-in and check-out dates.</div>';
+            return;
+        }
+
+        if (new Date(checkOut) <= new Date(checkIn)) {
+            document.getElementById('booking-alert').innerHTML =
+                '<div class="alert alert-error">Check-out must be after check-in.</div>';
+            return;
+        }
+
+        try {
+            const data = await createReservation(roomId, checkIn, checkOut);
+            if (data.id) {
+                document.getElementById('booking-alert').innerHTML =
+                    '<div class="alert alert-success">🎉 Booking confirmed! Redirecting...</div>';
+                setTimeout(() => window.location.href = '/dashboard.html', 1500);
+            } else {
+                document.getElementById('booking-alert').innerHTML =
+                    `<div class="alert alert-error">${data.error || 'Room not available for selected dates.'}</div>`;
+            }
+        } catch (err) {
+            document.getElementById('booking-alert').innerHTML =
+                '<div class="alert alert-error">Booking failed. Please try again.</div>';
+        }
+    }
+
+    updateNavbar();
+    loadRoom();
+</script>
+
+</body>
+</html>

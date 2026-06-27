@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StayEase — Admin Panel</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+    <a href="/index.html" class="nav-brand">Stay<span>Ease</span></a>
+    <div class="nav-links">
+        <span id="nav-email"></span>
+        <a href="/index.html">Rooms</a>
+        <a href="/dashboard.html" id="nav-dashboard" style="display:none">My Bookings</a>
+        <a href="/admin.html" id="nav-admin" style="display:none">Admin</a>
+        <a href="/login.html" id="nav-login">Login</a>
+        <a href="/login.html?mode=register" id="nav-register" class="btn-accent">Register</a>
+        <a href="#" id="nav-logout" style="display:none" onclick="logout()">Logout</a>
+    </div>
+</nav>
+
+<div class="container">
+    <h1 class="section-title">Admin Panel</h1>
+
+    <!-- STATS -->
+    <div class="stats-grid" id="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number" id="stat-rooms">—</div>
+            <div class="stat-label">Total Rooms</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="stat-reservations">—</div>
+            <div class="stat-label">Total Reservations</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="stat-confirmed">—</div>
+            <div class="stat-label">Confirmed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="stat-revenue">—</div>
+            <div class="stat-label">Total Revenue</div>
+        </div>
+    </div>
+
+    <!-- ADD ROOM -->
+    <div class="form-card" style="max-width:100%;margin-bottom:2rem">
+        <h2>Add New Room</h2>
+        <div id="room-alert"></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem">
+            <div class="form-group">
+                <label>Room Number</label>
+                <input type="text" id="room-number" placeholder="101">
+            </div>
+            <div class="form-group">
+                <label>Type</label>
+                <select id="room-type">
+                    <option value="SINGLE">Single</option>
+                    <option value="DOUBLE">Double</option>
+                    <option value="SUITE">Suite</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Price per Night ($)</label>
+                <input type="number" id="room-price" placeholder="120">
+            </div>
+            <div class="form-group">
+                <label>Capacity</label>
+                <input type="number" id="room-capacity" placeholder="2">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea id="room-description" placeholder="Describe the room..."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="handleAddRoom()">Add Room</button>
+    </div>
+
+    <!-- ROOMS TABLE -->
+    <h2 class="section-title">Manage Rooms</h2>
+    <div class="table-wrap" style="margin-bottom:2rem">
+        <table>
+            <thead>
+            <tr>
+                <th>Number</th>
+                <th>Type</th>
+                <th>Price/Night</th>
+                <th>Capacity</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody id="rooms-table-body">
+            <tr><td colspan="6" class="loading">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- RESERVATIONS TABLE -->
+    <h2 class="section-title">All Reservations</h2>
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Guest</th>
+                <th>Room</th>
+                <th>Check-in</th>
+                <th>Check-out</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody id="reservations-table-body">
+            <tr><td colspan="8" class="loading">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<footer>
+    <p>© 2026 StayEase. All rights reserved.</p>
+</footer>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script>
+    requireAdmin();
+
+    async function loadData() {
+        try {
+            const [rooms, reservations] = await Promise.all([
+                getAllRooms(),
+                getAllReservations()
+            ]);
+            renderStats(rooms, reservations);
+            renderRoomsTable(rooms);
+            renderReservationsTable(reservations);
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    function renderStats(rooms, reservations) {
+        document.getElementById('stat-rooms').textContent = rooms.length;
+        document.getElementById('stat-reservations').textContent = reservations.length;
+        document.getElementById('stat-confirmed').textContent =
+            reservations.filter(r => r.status === 'CONFIRMED').length;
+        const revenue = reservations
+            .filter(r => r.status !== 'CANCELLED')
+            .reduce((sum, r) => sum + r.totalPrice, 0);
+        document.getElementById('stat-revenue').textContent = '$' + revenue.toFixed(0);
+    }
+
+    function renderRoomsTable(rooms) {
+        const tbody = document.getElementById('rooms-table-body');
+        if (rooms.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">No rooms yet.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rooms.map(room => `
+            <tr>
+                <td><strong>${room.number}</strong></td>
+                <td>${room.type}</td>
+                <td>$${room.pricePerNight}</td>
+                <td>${room.capacity}</td>
+                <td><span class="badge ${
+            room.status === 'AVAILABLE' ? 'badge-available' :
+                room.status === 'OCCUPIED'  ? 'badge-occupied'  : 'badge-maintenance'
+        }">${room.status}</span></td>
+                <td>
+                    <button class="btn btn-danger"
+                        style="padding:6px 14px;font-size:0.8rem"
+                        onclick="handleDeleteRoom(${room.id})">
+                        Delete
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function renderReservationsTable(reservations) {
+        const tbody = document.getElementById('reservations-table-body');
+        if (reservations.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">No reservations yet.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = reservations.map(r => `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.user.name}<br>
+                    <small style="color:var(--text-muted)">${r.user.email}</small>
+                </td>
+                <td>Room ${r.room.number}</td>
+                <td>${r.checkIn}</td>
+                <td>${r.checkOut}</td>
+                <td>$${r.totalPrice}</td>
+                <td><span class="badge ${
+            r.status === 'CONFIRMED'   ? 'badge-available'   :
+                r.status === 'CANCELLED'   ? 'badge-occupied'    :
+                    r.status === 'CHECKED_IN'  ? 'badge-available'   : 'badge-maintenance'
+        }">${r.status}</span></td>
+                <td>
+                    <select onchange="handleStatusUpdate(${r.id}, this.value)"
+                        style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:0.8rem">
+                        <option value="">Update...</option>
+                        <option value="CONFIRMED">Confirm</option>
+                        <option value="CHECKED_IN">Check In</option>
+                        <option value="CHECKED_OUT">Check Out</option>
+                        <option value="CANCELLED">Cancel</option>
+                    </select>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async function handleAddRoom() {
+        const number      = document.getElementById('room-number').value.trim();
+        const type        = document.getElementById('room-type').value;
+        const price       = document.getElementById('room-price').value;
+        const capacity    = document.getElementById('room-capacity').value;
+        const description = document.getElementById('room-description').value.trim();
+
+        if (!number || !price || !capacity) {
+            document.getElementById('room-alert').innerHTML =
+                '<div class="alert alert-error">Please fill in all required fields.</div>';
+            return;
+        }
+
+        try {
+            await createRoom({
+                number, type,
+                pricePerNight: parseFloat(price),
+                capacity: parseInt(capacity),
+                description
+            });
+            document.getElementById('room-alert').innerHTML =
+                '<div class="alert alert-success">Room added successfully.</div>';
+            document.getElementById('room-number').value = '';
+            document.getElementById('room-price').value = '';
+            document.getElementById('room-capacity').value = '';
+            document.getElementById('room-description').value = '';
+            loadData();
+        } catch (err) {
+            document.getElementById('room-alert').innerHTML =
+                '<div class="alert alert-error">Failed to add room.</div>';
+        }
+    }
+
+    async function handleDeleteRoom(id) {
+        if (!confirm('Delete this room? This cannot be undone.')) return;
+        try {
+            await deleteRoom(id);
+            loadData();
+        } catch (err) {
+            alert('Failed to delete room.');
+        }
+    }
+
+    async function handleStatusUpdate(id, status) {
+        if (!status) return;
+        try {
+            await updateReservationStatus(id, status);
+            loadData();
+        } catch (err) {
+            alert('Failed to update status.');
+        }
+    }
+
+    updateNavbar();
+    loadData();
+</script>
+
+</body>
+</html>

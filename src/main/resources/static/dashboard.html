@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StayEase — My Bookings</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+    <a href="/index.html" class="nav-brand">Stay<span>Ease</span></a>
+    <div class="nav-links">
+        <span id="nav-email"></span>
+        <a href="/index.html">Rooms</a>
+        <a href="/dashboard.html" id="nav-dashboard" style="display:none">My Bookings</a>
+        <a href="/admin.html" id="nav-admin" style="display:none">Admin</a>
+        <a href="/login.html" id="nav-login">Login</a>
+        <a href="/login.html?mode=register" id="nav-register" class="btn-accent">Register</a>
+        <a href="#" id="nav-logout" style="display:none" onclick="logout()">Logout</a>
+    </div>
+</nav>
+
+<div class="container">
+    <h1 class="section-title">My Bookings</h1>
+    <div id="alert-box"></div>
+    <div id="reservations-container">
+        <div class="loading">
+            <div class="spinner"></div>
+            Loading your bookings...
+        </div>
+    </div>
+</div>
+
+<footer>
+    <p>© 2026 StayEase. All rights reserved.</p>
+</footer>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script>
+    requireAuth();
+
+    async function loadReservations() {
+        try {
+            const reservations = await getMyReservations();
+            renderReservations(reservations);
+        } catch (err) {
+            document.getElementById('reservations-container').innerHTML =
+                '<div class="alert alert-error">Failed to load bookings.</div>';
+        }
+    }
+
+    function getStatusBadge(status) {
+        const map = {
+            'CONFIRMED':   'badge-available',
+            'PENDING':     'badge-maintenance',
+            'CANCELLED':   'badge-occupied',
+            'CHECKED_IN':  'badge-available',
+            'CHECKED_OUT': 'badge-maintenance',
+        };
+        return `<span class="badge ${map[status] || ''}">${status}</span>`;
+    }
+
+    function renderReservations(reservations) {
+        const container = document.getElementById('reservations-container');
+
+        if (reservations.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">🏨</div>
+                    <p>You have no bookings yet.</p>
+                    <a href="/index.html" class="btn btn-primary" style="margin-top:1rem">Browse Rooms</a>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = reservations.map(r => `
+            <div class="reservation-card">
+                <div class="reservation-info">
+                    <h3>Room ${r.room.number} — ${r.room.type}</h3>
+                    <p>📅 ${r.checkIn} → ${r.checkOut}</p>
+                    <p>💰 Total: $${r.totalPrice}</p>
+                </div>
+                <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+                    ${getStatusBadge(r.status)}
+                    ${r.status === 'CONFIRMED' ? `
+                        <button class="btn btn-danger"
+                            onclick="handleCancel(${r.id})">
+                            Cancel
+                        </button>
+                    ` : ''}
+                    ${r.status === 'CHECKED_OUT' ? `
+                        <a href="/room-detail.html?id=${r.room.id}"
+                           class="btn btn-outline">
+                            Leave Review
+                        </a>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function handleCancel(id) {
+        if (!confirm('Are you sure you want to cancel this booking?')) return;
+        try {
+            await cancelReservation(id);
+            document.getElementById('alert-box').innerHTML =
+                '<div class="alert alert-success">Booking cancelled successfully.</div>';
+            loadReservations();
+        } catch (err) {
+            document.getElementById('alert-box').innerHTML =
+                '<div class="alert alert-error">Failed to cancel booking.</div>';
+        }
+    }
+
+    updateNavbar();
+    loadReservations();
+</script>
+
+</body>
+</html>

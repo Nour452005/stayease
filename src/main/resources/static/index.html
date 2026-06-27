@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StayEase — Find Your Perfect Room</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+    <a href="/index.html" class="nav-brand">Stay<span>Ease</span></a>
+    <div class="nav-links">
+        <span id="nav-email"></span>
+        <a href="/index.html">Rooms</a>
+        <a href="/dashboard.html" id="nav-dashboard" style="display:none">My Bookings</a>
+        <a href="/admin.html" id="nav-admin" style="display:none">Admin</a>
+        <a href="/login.html" id="nav-login">Login</a>
+        <a href="/login.html?mode=register" id="nav-register" class="btn-accent">Register</a>
+        <a href="#" id="nav-logout" style="display:none" onclick="logout()">Logout</a>
+    </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+    <h1>Find Your Perfect Stay</h1>
+    <p>Browse our beautiful rooms and book your next getaway</p>
+    <div class="search-bar">
+        <div class="form-group">
+            <label>Check-in</label>
+            <input type="date" id="search-checkin">
+        </div>
+        <div class="form-group">
+            <label>Check-out</label>
+            <input type="date" id="search-checkout">
+        </div>
+        <div class="form-group">
+            <label>Type</label>
+            <select id="search-type">
+                <option value="">All types</option>
+                <option value="SINGLE">Single</option>
+                <option value="DOUBLE">Double</option>
+                <option value="SUITE">Suite</option>
+            </select>
+        </div>
+        <button class="btn btn-accent" onclick="filterRooms()">Search</button>
+    </div>
+</div>
+
+<!-- ROOMS -->
+<div class="container">
+    <h2 class="section-title">Available Rooms</h2>
+    <div id="rooms-container">
+        <div class="loading">
+            <div class="spinner"></div>
+            Loading rooms...
+        </div>
+    </div>
+</div>
+
+<footer>
+    <p>© 2026 StayEase. All rights reserved.</p>
+</footer>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script>
+    let allRooms = [];
+
+    async function loadRooms() {
+        try {
+            allRooms = await getAllRooms();
+            renderRooms(allRooms);
+        } catch (err) {
+            document.getElementById('rooms-container').innerHTML =
+                '<div class="alert alert-error">Failed to load rooms. Make sure the server is running.</div>';
+        }
+    }
+
+    function renderRooms(rooms) {
+        const container = document.getElementById('rooms-container');
+
+        const available = rooms.filter(r => r.status === 'AVAILABLE');
+
+        if (available.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">🏨</div>
+                    <p>No rooms available at the moment.</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = `<div class="rooms-grid">
+            ${available.map(room => `
+                <a href="/room-detail.html?id=${room.id}" class="room-card">
+                    <div class="room-card-img">🛏️</div>
+                    <div class="room-card-body">
+                        <div class="room-card-title">Room ${room.number} — ${room.type}</div>
+                        <div class="room-card-desc">${room.description || 'A comfortable room for your stay.'}</div>
+                        <div class="room-card-footer">
+                            <div class="room-price">$${room.pricePerNight} <span>/ night</span></div>
+                            <span class="badge badge-available">👥 ${room.capacity} guests</span>
+                        </div>
+                    </div>
+                </a>
+            `).join('')}
+        </div>`;
+    }
+
+    function filterRooms() {
+        const type = document.getElementById('search-type').value;
+        let filtered = allRooms.filter(r => r.status === 'AVAILABLE');
+        if (type) filtered = filtered.filter(r => r.type === type);
+        renderRooms(filtered);
+    }
+
+    // Set min date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('search-checkin').min = today;
+    document.getElementById('search-checkout').min = today;
+
+    updateNavbar();
+    loadRooms();
+</script>
+
+</body>
+</html>

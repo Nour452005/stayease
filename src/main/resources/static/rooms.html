@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StayEase — Rooms</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+    <a href="/index.html" class="nav-brand">Stay<span>Ease</span></a>
+    <div class="nav-links">
+        <span id="nav-email"></span>
+        <a href="/index.html">Rooms</a>
+        <a href="/dashboard.html" id="nav-dashboard" style="display:none">My Bookings</a>
+        <a href="/admin.html" id="nav-admin" style="display:none">Admin</a>
+        <a href="/login.html" id="nav-login">Login</a>
+        <a href="/login.html?mode=register" id="nav-register" class="btn-accent">Register</a>
+        <a href="#" id="nav-logout" style="display:none" onclick="logout()">Logout</a>
+    </div>
+</nav>
+
+<div class="container">
+    <h1 class="section-title">All Rooms</h1>
+
+    <!-- FILTERS -->
+    <div style="background:var(--white);border-radius:8px;padding:1.25rem;
+                box-shadow:var(--card-shadow);margin-bottom:1.5rem;
+                display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end">
+        <div class="form-group" style="margin:0;flex:1;min-width:140px">
+            <label>Type</label>
+            <select id="filter-type" onchange="filterRooms()">
+                <option value="">All types</option>
+                <option value="SINGLE">Single</option>
+                <option value="DOUBLE">Double</option>
+                <option value="SUITE">Suite</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;flex:1;min-width:140px">
+            <label>Max price per night</label>
+            <input type="number" id="filter-price" placeholder="Any price"
+                   onchange="filterRooms()">
+        </div>
+        <div class="form-group" style="margin:0;flex:1;min-width:140px">
+            <label>Min capacity</label>
+            <input type="number" id="filter-capacity" placeholder="Any"
+                   onchange="filterRooms()">
+        </div>
+        <button class="btn btn-outline" onclick="clearFilters()">Clear</button>
+    </div>
+
+    <div id="rooms-container">
+        <div class="loading">
+            <div class="spinner"></div>
+            Loading rooms...
+        </div>
+    </div>
+</div>
+
+<footer>
+    <p>© 2026 StayEase. All rights reserved.</p>
+</footer>
+
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script>
+    let allRooms = [];
+
+    async function loadRooms() {
+        try {
+            allRooms = await getAllRooms();
+            filterRooms();
+        } catch (err) {
+            document.getElementById('rooms-container').innerHTML =
+                '<div class="alert alert-error">Failed to load rooms.</div>';
+        }
+    }
+
+    function filterRooms() {
+        const type     = document.getElementById('filter-type').value;
+        const maxPrice = parseFloat(document.getElementById('filter-price').value);
+        const minCap   = parseInt(document.getElementById('filter-capacity').value);
+
+        let filtered = allRooms.filter(r => r.status === 'AVAILABLE');
+        if (type)           filtered = filtered.filter(r => r.type === type);
+        if (!isNaN(maxPrice)) filtered = filtered.filter(r => r.pricePerNight <= maxPrice);
+        if (!isNaN(minCap))   filtered = filtered.filter(r => r.capacity >= minCap);
+
+        renderRooms(filtered);
+    }
+
+    function clearFilters() {
+        document.getElementById('filter-type').value = '';
+        document.getElementById('filter-price').value = '';
+        document.getElementById('filter-capacity').value = '';
+        filterRooms();
+    }
+
+    function renderRooms(rooms) {
+        const container = document.getElementById('rooms-container');
+
+        if (rooms.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">🏨</div>
+                    <p>No rooms match your filters.</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = `<div class="rooms-grid">
+            ${rooms.map(room => `
+                <a href="/room-detail.html?id=${room.id}" class="room-card">
+                    <div class="room-card-img">🛏️</div>
+                    <div class="room-card-body">
+                        <div class="room-card-title">Room ${room.number} — ${room.type}</div>
+                        <div class="room-card-desc">${room.description || 'A comfortable room for your stay.'}</div>
+                        <div class="room-card-footer">
+                            <div class="room-price">$${room.pricePerNight} <span>/ night</span></div>
+                            <span class="badge badge-available">👥 ${room.capacity} guests</span>
+                        </div>
+                    </div>
+                </a>
+            `).join('')}
+        </div>`;
+    }
+
+    updateNavbar();
+    loadRooms();
+</script>
+
+</body>
+</html>
