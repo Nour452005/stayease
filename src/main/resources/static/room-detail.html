@@ -67,7 +67,10 @@
         const today = new Date().toISOString().split('T')[0];
 
         document.getElementById('room-container').innerHTML = `
-            <div class="room-detail-img">🛏️</div>
+           ${room.imageUrl
+            ? `<img src="${room.imageUrl}" class="room-detail-img" style="object-fit:cover;width:100%">`
+            : `<div class="room-detail-img">🛏️</div>`
+        }
 
             <div class="room-detail-grid">
                 <div class="room-info">

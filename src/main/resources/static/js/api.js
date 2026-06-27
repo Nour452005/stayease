@@ -126,3 +126,25 @@ async function createReview(roomId, rating, comment) {
     });
     return res.json();
 }
+
+// UPLOAD
+async function uploadRoomImage(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch(`${API_BASE}/upload/room-image`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${getToken()}` },
+        body: formData
+    });
+    return res.json();
+}
+
+async function updateRoomImage(roomId, imageUrl) {
+    const res = await fetch(`${API_BASE}/rooms/${roomId}/image`, {
+        method: 'PATCH',
+        headers: getHeaders(true),
+        body: JSON.stringify({ imageUrl })
+    });
+    return res.json();
+}

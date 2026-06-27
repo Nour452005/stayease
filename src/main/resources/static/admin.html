@@ -88,6 +88,7 @@
                 <th>Type</th>
                 <th>Price/Night</th>
                 <th>Capacity</th>
+                <th>Image</th>
                 <th>Status</th>
                 <th>Actions</th>
             </tr>
@@ -158,28 +159,40 @@
     function renderRoomsTable(rooms) {
         const tbody = document.getElementById('rooms-table-body');
         if (rooms.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">No rooms yet.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">No rooms yet.</td></tr>';
             return;
         }
         tbody.innerHTML = rooms.map(room => `
-            <tr>
-                <td><strong>${room.number}</strong></td>
-                <td>${room.type}</td>
-                <td>$${room.pricePerNight}</td>
-                <td>${room.capacity}</td>
-                <td><span class="badge ${
+        <tr>
+            <td><strong>${room.number}</strong></td>
+            <td>${room.type}</td>
+            <td>$${room.pricePerNight}</td>
+            <td>${room.capacity}</td>
+            <td>
+                ${room.imageUrl
+            ? `<img src="${room.imageUrl}" style="width:60px;height:40px;object-fit:cover;border-radius:4px">`
+            : '<span style="color:var(--text-muted);font-size:0.8rem">No image</span>'
+        }
+            </td>
+            <td><span class="badge ${
             room.status === 'AVAILABLE' ? 'badge-available' :
                 room.status === 'OCCUPIED'  ? 'badge-occupied'  : 'badge-maintenance'
         }">${room.status}</span></td>
-                <td>
-                    <button class="btn btn-danger"
-                        style="padding:6px 14px;font-size:0.8rem"
-                        onclick="handleDeleteRoom(${room.id})">
-                        Delete
-                    </button>
-                </td>
-            </tr>
-        `).join('');
+            <td style="display:flex;gap:8px;align-items:center">
+                <label class="btn btn-outline"
+                    style="padding:6px 14px;font-size:0.8rem;cursor:pointer">
+                    📷 Image
+                    <input type="file" accept="image/*" style="display:none"
+                        onchange="handleImageUpload(${room.id}, this)">
+                </label>
+                <button class="btn btn-danger"
+                    style="padding:6px 14px;font-size:0.8rem"
+                    onclick="handleDeleteRoom(${room.id})">
+                    Delete
+                </button>
+            </td>
+        </tr>
+    `).join('');
     }
 
     function renderReservationsTable(reservations) {
@@ -267,6 +280,27 @@
             loadData();
         } catch (err) {
             alert('Failed to update status.');
+        }
+    }
+
+    async function handleImageUpload(roomId, input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        try {
+            const uploadResult = await uploadRoomImage(file);
+            if (uploadResult.imageUrl) {
+                await updateRoomImage(roomId, uploadResult.imageUrl);
+                document.getElementById('room-alert').innerHTML =
+                    '<div class="alert alert-success">Image uploaded successfully.</div>';
+                loadData();
+            } else {
+                document.getElementById('room-alert').innerHTML =
+                    '<div class="alert alert-error">Failed to upload image.</div>';
+            }
+        } catch (err) {
+            document.getElementById('room-alert').innerHTML =
+                '<div class="alert alert-error">Upload failed.</div>';
         }
     }
 

@@ -113,7 +113,10 @@
         container.innerHTML = `<div class="rooms-grid">
             ${rooms.map(room => `
                 <a href="/room-detail.html?id=${room.id}" class="room-card">
-                    <div class="room-card-img">🛏️</div>
+                    ${room.imageUrl
+            ? `<img src="${room.imageUrl}" class="room-card-img" style="object-fit:cover">`
+            : `<div class="room-card-img">🛏️</div>`
+        }
                     <div class="room-card-body">
                         <div class="room-card-title">Room ${room.number} — ${room.type}</div>
                         <div class="room-card-desc">${room.description || 'A comfortable room for your stay.'}</div>

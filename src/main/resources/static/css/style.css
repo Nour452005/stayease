@@ -385,6 +385,7 @@ tr:hover td { background: #f8f8f8; }
     color: white;
     font-size: 5rem;
     margin-bottom: 1.5rem;
+    object-fit: cover;
 }
 
 .room-detail-grid {
